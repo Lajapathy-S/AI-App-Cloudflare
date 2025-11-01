@@ -18,10 +18,9 @@
   ],
   "author": "",
   "license": "MIT",
-  "dependencies": {},
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241106.0",
     "typescript": "^5.3.3",
-    "wrangler": "^4.0.0"
+    "wrangler": "^4.45.3"
   }
 }

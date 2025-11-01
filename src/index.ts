@@ -36,7 +36,35 @@ export default {
       });
     }
     
-    return new Response("Not Found", { status: 404 });
+    // Root path - return info
+    if (url.pathname === "/" && request.method === "GET") {
+      return new Response(
+        JSON.stringify({
+          status: "ok",
+          service: "ai-app-cloudflare",
+          message: "Worker is running. Use /api/chat for chat API or /chat for WebSocket.",
+          endpoints: {
+            health: "/health",
+            chat: "/api/chat",
+            websocket: "/chat"
+          }
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        }
+      );
+    }
+    
+    return new Response(
+      JSON.stringify({ error: "Not Found", path: url.pathname }),
+      {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   },
 };
 
