@@ -1,0 +1,29 @@
+{
+  "name": "ai-app-cloudflare",
+  "version": "1.0.0",
+  "description": "AI-powered application built on Cloudflare Agents with Llama 3.3, state management, and chat interface",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "pages:dev": "wrangler pages dev public",
+    "pages:deploy": "wrangler pages deploy public"
+  },
+  "keywords": [
+    "cloudflare",
+    "agents",
+    "ai",
+    "llm",
+    "workers"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "agents": "^0.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241106.0",
+    "typescript": "^5.3.3",
+    "wrangler": "^3.78.0"
+  }
+}
