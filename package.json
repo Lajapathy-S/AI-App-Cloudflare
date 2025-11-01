@@ -7,7 +7,7 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "pages:dev": "wrangler pages dev public --compatibility-date=2024-11-01",
-    "pages:deploy": "wrangler pages deploy public --project-name=ai-app-cloudflare"
+    "pages:deploy": "wrangler pages deploy public --project-name=ai-app-cloudflare --config=wrangler.pages.jsonc"
   },
   "keywords": [
     "cloudflare",
