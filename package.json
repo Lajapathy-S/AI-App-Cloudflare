@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "pages:dev": "wrangler pages dev public",
-    "pages:deploy": "wrangler pages deploy public"
+    "pages:dev": "wrangler pages dev public --compatibility-date=2024-11-01",
+    "pages:deploy": "wrangler pages deploy public --project-name=ai-app-cloudflare"
   },
   "keywords": [
     "cloudflare",
@@ -22,6 +22,6 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241106.0",
     "typescript": "^5.3.3",
-    "wrangler": "^3.78.0"
+    "wrangler": "^4.0.0"
   }
 }

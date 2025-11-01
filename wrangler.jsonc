@@ -19,6 +19,5 @@
   ],
   "ai": {
     "binding": "AI"
-  },
-  "pages_build_output_dir": "public"
+  }
 }
