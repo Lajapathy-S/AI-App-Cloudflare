@@ -7,15 +7,14 @@
     "bindings": [
       {
         "name": "ChatAgent",
-        "class_name": "ChatAgent",
-        "script_name": "ai-app-cloudflare"
+        "class_name": "ChatAgent"
       }
     ]
   },
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["ChatAgent"]
+      "new_classes": ["ChatAgent"]
     }
   ],
   "ai": {

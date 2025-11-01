@@ -11,7 +11,7 @@ export default {
       return stub.fetch(request);
     }
     
-    // Handle HTTP requests
+    // Handle HTTP chat requests
     if (url.pathname === "/api/chat" && request.method === "POST") {
       const id = env.ChatAgent.idFromName("default");
       const stub = env.ChatAgent.get(id);
@@ -26,6 +26,13 @@ export default {
           "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
           "Access-Control-Allow-Headers": "Content-Type",
         },
+      });
+    }
+    
+    // Health check endpoint
+    if (url.pathname === "/health" && request.method === "GET") {
+      return new Response(JSON.stringify({ status: "ok", service: "ai-app-cloudflare" }), {
+        headers: { "Content-Type": "application/json" },
       });
     }
     

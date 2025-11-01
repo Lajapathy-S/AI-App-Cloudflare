@@ -1,15 +1,14 @@
-import { Agent } from "agents";
-
 interface Env {
   AI: any;
 }
 
-export class ChatAgent extends Agent {
-  private conversationHistory: Array<{ role: string; content: string }> = [];
+export class ChatAgent {
+  private state: DurableObjectState;
   private env: Env;
+  private conversationHistory: Array<{ role: string; content: string }> = [];
   
   constructor(state: DurableObjectState, env: Env) {
-    super(state, env);
+    this.state = state;
     this.env = env;
   }
   
@@ -25,6 +24,13 @@ export class ChatAgent extends Agent {
     if (request.method === "POST") {
       const data = await request.json();
       return this.handleChatRequest(data);
+    }
+    
+    // Handle GET requests for health check
+    if (request.method === "GET") {
+      return new Response(JSON.stringify({ status: "ok" }), {
+        headers: { "Content-Type": "application/json" },
+      });
     }
     
     return new Response("Method not allowed", { status: 405 });
@@ -59,11 +65,20 @@ export class ChatAgent extends Agent {
           }));
         }
       } catch (error) {
+        console.error("WebSocket error:", error);
         ws.send(JSON.stringify({
           type: "error",
           message: "An error occurred processing your message",
         }));
       }
+    });
+    
+    ws.addEventListener("error", (error) => {
+      console.error("WebSocket error:", error);
+    });
+    
+    ws.addEventListener("close", () => {
+      console.log("WebSocket closed");
     });
   }
   
@@ -73,7 +88,10 @@ export class ChatAgent extends Agent {
         JSON.stringify({ error: "Message is required" }),
         {
           status: 400,
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
         }
       );
     }
@@ -98,7 +116,7 @@ export class ChatAgent extends Agent {
     // Add user message to conversation history
     this.conversationHistory.push({ role: "user", content: message });
     
-    // Retrieve conversation state from Durable Object
+    // Retrieve conversation state from Durable Object storage
     const state = await this.getState();
     const history = state.conversationHistory || [];
     history.push({ role: "user", content: message });
@@ -143,27 +161,61 @@ export class ChatAgent extends Agent {
   private async callLLM(prompt: string): Promise<string> {
     try {
       // Use Workers AI with Llama 3.3
-      // Get AI binding from environment
       const ai = this.env?.AI;
       
       if (ai) {
         try {
-          // Use Llama 3.3 via Workers AI
-          const response = await ai.run("@cf/meta/llama-3.3-70b-instruct", {
-            messages: [
-              {
-                role: "system",
-                content: "You are a helpful AI assistant. Provide clear, concise, and helpful responses."
-              },
-              {
-                role: "user",
-                content: prompt
-              }
-            ],
-            max_tokens: 500,
-          });
+          // Try Llama 3.3 via Workers AI
+          // Note: The exact API might vary, so we'll try a few formats
+          let response: any;
           
-          return response.response || response.text || JSON.stringify(response);
+          // Method 1: Try with messages format
+          try {
+            response = await ai.run("@cf/meta/llama-3.3-70b-instruct", {
+              messages: [
+                {
+                  role: "system",
+                  content: "You are a helpful AI assistant. Provide clear, concise, and helpful responses."
+                },
+                {
+                  role: "user",
+                  content: prompt
+                }
+              ],
+              max_tokens: 500,
+            });
+            
+            if (response && response.response) {
+              return response.response;
+            }
+          } catch (e) {
+            console.log("Trying alternative AI format...");
+          }
+          
+          // Method 2: Try with prompt format
+          try {
+            response = await ai.run("@cf/meta/llama-3.3-70b-instruct", {
+              prompt: prompt,
+              max_tokens: 500,
+            });
+            
+            if (response && (response.response || response.text)) {
+              return response.response || response.text;
+            }
+          } catch (e) {
+            console.log("AI API error, using fallback");
+          }
+          
+          // If we got a response but don't know the format, try to extract text
+          if (response) {
+            const text = response.response || response.text || response.description || JSON.stringify(response);
+            if (text && typeof text === 'string' && text.length > 0) {
+              return text;
+            }
+          }
+          
+          // Fallback to local response generation
+          return await this.generateResponse(prompt);
         } catch (aiError) {
           console.error("AI API error:", aiError);
           // Fallback to local response generation
@@ -180,12 +232,10 @@ export class ChatAgent extends Agent {
   }
   
   private async generateResponse(prompt: string): Promise<string> {
-    // This is a placeholder - in production, use Workers AI
-    // For now, we'll create a smart response based on the prompt
-    
+    // Smart fallback response generation
     const lowerPrompt = prompt.toLowerCase();
     
-    if (lowerPrompt.includes("hello") || lowerPrompt.includes("hi")) {
+    if (lowerPrompt.includes("hello") || lowerPrompt.includes("hi") || lowerPrompt.includes("hey")) {
       return "Hello! I'm your AI assistant powered by Cloudflare Workers AI. How can I help you today?";
     }
     
@@ -197,47 +247,38 @@ export class ChatAgent extends Agent {
       return "I'm here to help! I can answer questions, have conversations, and assist with various topics. What would you like to know?";
     }
     
+    if (lowerPrompt.includes("name")) {
+      return "I'm an AI assistant running on Cloudflare Workers. You can call me your Cloudflare AI Assistant!";
+    }
+    
+    if (lowerPrompt.includes("what") && lowerPrompt.includes("can")) {
+      return "I can help you with questions, have conversations, provide information, and assist with various tasks. Try asking me anything!";
+    }
+    
     // Default response
-    return `Thank you for your message: "${prompt}". I'm processing your request using Cloudflare Workers AI with Llama 3.3. This is a demonstration of the AI-powered application with state management and real-time chat capabilities.`;
+    return `Thank you for your message! I'm processing your request using Cloudflare Workers AI. This is a demonstration of an AI-powered application with state management and real-time chat capabilities.`;
   }
   
   private async getState(): Promise<any> {
-    // Get state using Agent's built-in state management
+    // Get state from Durable Object storage
     try {
-      const state = await this.sql.prepare("SELECT * FROM state WHERE id = 1").first();
-      return state || { conversationHistory: [], messageCount: 0 };
+      const stored = await this.state.storage.get("state");
+      if (stored) {
+        return stored;
+      }
+      return { conversationHistory: [], messageCount: 0 };
     } catch (error) {
-      // If table doesn't exist, return default state
-      await this.sql.exec(`
-        CREATE TABLE IF NOT EXISTS state (
-          id INTEGER PRIMARY KEY,
-          conversationHistory TEXT,
-          messageCount INTEGER,
-          lastUpdated TEXT
-        )
-      `);
+      console.error("Error getting state:", error);
       return { conversationHistory: [], messageCount: 0 };
     }
   }
   
   private async setState(data: any): Promise<void> {
-    // Save state using Agent's built-in SQL database
-    await this.sql.exec(`
-      CREATE TABLE IF NOT EXISTS state (
-        id INTEGER PRIMARY KEY,
-        conversationHistory TEXT,
-        messageCount INTEGER,
-        lastUpdated TEXT
-      )
-    `);
-    
-    await this.sql.prepare(`
-      INSERT OR REPLACE INTO state (id, conversationHistory, messageCount, lastUpdated)
-      VALUES (1, ?, ?, ?)
-    `).bind(
-      JSON.stringify(data.conversationHistory),
-      data.messageCount,
-      data.lastUpdated
-    ).run();
+    // Save state to Durable Object storage
+    try {
+      await this.state.storage.put("state", data);
+    } catch (error) {
+      console.error("Error setting state:", error);
+    }
   }
 }

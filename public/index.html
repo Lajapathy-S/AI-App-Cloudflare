@@ -269,7 +269,12 @@
                     ws.send(JSON.stringify({ type: 'chat', message }));
                 } else {
                     // Fallback to HTTP POST
-                    const response = await fetch('/api/chat', {
+                    // Try to get worker URL from current host
+                    const workerUrl = window.location.hostname.includes('pages.dev') 
+                        ? `https://ai-app-cloudflare.${window.location.hostname.split('.')[1] || 'YOUR_SUBDOMAIN'}.workers.dev/api/chat`
+                        : '/api/chat';
+                    
+                    const response = await fetch(workerUrl, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -298,7 +303,14 @@
         
         function connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/chat`;
+            // Try to connect to worker if on Pages, otherwise use same host
+            let wsHost = window.location.host;
+            if (window.location.hostname.includes('pages.dev')) {
+                // Extract subdomain and construct worker URL
+                const subdomain = window.location.hostname.split('.')[1] || 'YOUR_SUBDOMAIN';
+                wsHost = `ai-app-cloudflare.${subdomain}.workers.dev`;
+            }
+            const wsUrl = `${protocol}//${wsHost}/chat`;
             
             try {
                 ws = new WebSocket(wsUrl);
